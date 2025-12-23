@@ -15,7 +15,8 @@ from app.update.models import FileChange, UpdateProposal
 from app.memory.manager import MemoryManager
 from app.memory.models import MemoryCategory
 
-from app.core.runtime_status import get_runtime_status, to_human_readable
+from app.core.runtime_status import get_runtime_status, to_human_readable as runtime_hr
+from app.core.memory_status import get_memory_status, to_human_readable as memory_hr
 
 
 START_TIME = time.time()
@@ -28,17 +29,6 @@ class RuntimeState:
     memory_manager: MemoryManager
 
 
-def _uptime_str() -> str:
-    seconds = int(time.time() - START_TIME)
-    m, s = divmod(seconds, 60)
-    h, m = divmod(m, 60)
-    if h:
-        return f"{h}h {m}m {s}s"
-    if m:
-        return f"{m}m {s}s"
-    return f"{s}s"
-
-
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
@@ -49,8 +39,7 @@ def _print_help() -> None:
         "Commands:\n"
         "  help\n"
         "  version\n"
-        "  status [runtime]\n"
-        "  uptime\n"
+        "  status [runtime|memory]\n"
         "  quit | exit\n"
         "\n"
         "Update system:\n"
@@ -74,25 +63,26 @@ def _cmd_version() -> None:
     print(f"Kimiko v{__version__}")
 
 
-def _cmd_uptime() -> None:
-    print(f"I’ve been running for {_uptime_str()}.")
+# ---------------- Status Commands ----------------
 
-
-# ---------------- Status Commands (v1.6 start) ----------------
-
-def _cmd_status(parts: list[str]) -> None:
-    # Keep legacy "status" working, and add "status runtime"
+def _cmd_status(state: RuntimeState, parts: list[str]) -> None:
     if len(parts) == 1:
-        print("Status: OK. Try 'status runtime' for details.")
+        print("Status available. Try: status runtime | status memory")
         return
 
     sub = parts[1].lower()
+
     if sub == "runtime":
         rs = get_runtime_status(version=__version__, start_time=START_TIME)
-        print(to_human_readable(rs))
+        print(runtime_hr(rs))
         return
 
-    print("Unknown status command. Try: status runtime")
+    if sub == "memory":
+        ms = get_memory_status(state.memory_manager)
+        print(memory_hr(ms))
+        return
+
+    print("Unknown status command")
 
 
 # ---------------- Update Commands ----------------
@@ -196,7 +186,6 @@ def _handle_memory(state: RuntimeState, parts: list[str]) -> None:
                 return
             category = MemoryCategory(parts[2])
             reason = parts[3]
-            # NOTE: Because we split on whitespace, JSON must not contain spaces.
             content = json.loads(" ".join(parts[4:]))
             p = mm.propose(category, content, reason)
             print(f"Proposed memory {p.id}")
@@ -275,11 +264,8 @@ def repl() -> None:
         if cmd == "version":
             _cmd_version()
             continue
-        if cmd == "uptime":
-            _cmd_uptime()
-            continue
         if cmd == "status":
-            _cmd_status(parts)
+            _cmd_status(state, parts)
             continue
         if cmd == "update":
             _handle_update(state, parts)
