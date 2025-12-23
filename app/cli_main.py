@@ -15,6 +15,8 @@ from app.update.models import FileChange, UpdateProposal
 from app.memory.manager import MemoryManager
 from app.memory.models import MemoryCategory
 
+from app.core.runtime_status import get_runtime_status, to_human_readable
+
 
 START_TIME = time.time()
 
@@ -47,7 +49,7 @@ def _print_help() -> None:
         "Commands:\n"
         "  help\n"
         "  version\n"
-        "  status\n"
+        "  status [runtime]\n"
         "  uptime\n"
         "  quit | exit\n"
         "\n"
@@ -72,13 +74,102 @@ def _cmd_version() -> None:
     print(f"Kimiko v{__version__}")
 
 
-def _cmd_status() -> None:
-    print("I’m running normally and everything looks good.")
-
-
 def _cmd_uptime() -> None:
     print(f"I’ve been running for {_uptime_str()}.")
 
+
+# ---------------- Status Commands (v1.6 start) ----------------
+
+def _cmd_status(parts: list[str]) -> None:
+    # Keep legacy "status" working, and add "status runtime"
+    if len(parts) == 1:
+        print("Status: OK. Try 'status runtime' for details.")
+        return
+
+    sub = parts[1].lower()
+    if sub == "runtime":
+        rs = get_runtime_status(version=__version__, start_time=START_TIME)
+        print(to_human_readable(rs))
+        return
+
+    print("Unknown status command. Try: status runtime")
+
+
+# ---------------- Update Commands ----------------
+
+def _handle_update(state: RuntimeState, parts: list[str]) -> None:
+    um = state.update_manager
+
+    if len(parts) < 2:
+        print("Usage: update <subcommand>")
+        return
+
+    sub = parts[1].lower()
+
+    if sub == "list":
+        items = um.list()
+        if not items:
+            print("(no proposals)")
+            return
+        for p in items:
+            print(f"- {p.id} [{p.status.value}] {p.summary}")
+        return
+
+    if sub == "show":
+        if len(parts) < 3:
+            print("Usage: update show <id>")
+            return
+        print(um.load(parts[2]))
+        return
+
+    if sub == "approve":
+        if len(parts) < 3:
+            print("Usage: update approve <id>")
+            return
+        um.approve(parts[2])
+        print("Approved.")
+        return
+
+    if sub == "reject":
+        if len(parts) < 3:
+            print("Usage: update reject <id> [note]")
+            return
+        note = " ".join(parts[3:]) if len(parts) > 3 else ""
+        um.reject(parts[2], note)
+        print("Rejected.")
+        return
+
+    if sub == "apply":
+        if len(parts) < 3:
+            print("Usage: update apply <id>")
+            return
+        print(um.apply(parts[2]))
+        return
+
+    if sub == "propose-demo":
+        p = UpdateProposal(
+            id=f"update-{int(time.time())}",
+            type="self-update",
+            scope=["app/version.py"],
+            summary="Demo patch bump",
+            reason="Verify update system",
+            changes=[
+                FileChange(
+                    file="app/version.py",
+                    action="modify",
+                    description="Patch bump",
+                    new_content='__version__ = "1.5.2"\n',
+                )
+            ],
+        )
+        um.propose(p)
+        print(f"Proposed {p.id}")
+        return
+
+    print("Unknown update command")
+
+
+# ---------------- Memory Commands ----------------
 
 def _handle_memory(state: RuntimeState, parts: list[str]) -> None:
     mm = state.memory_manager
@@ -105,6 +196,7 @@ def _handle_memory(state: RuntimeState, parts: list[str]) -> None:
                 return
             category = MemoryCategory(parts[2])
             reason = parts[3]
+            # NOTE: Because we split on whitespace, JSON must not contain spaces.
             content = json.loads(" ".join(parts[4:]))
             p = mm.propose(category, content, reason)
             print(f"Proposed memory {p.id}")
@@ -148,6 +240,8 @@ def _handle_memory(state: RuntimeState, parts: list[str]) -> None:
         print(f"Memory error: {e}")
 
 
+# ---------------- Main Loop ----------------
+
 def repl() -> None:
     repo = _repo_root()
     state = RuntimeState(
@@ -181,11 +275,11 @@ def repl() -> None:
         if cmd == "version":
             _cmd_version()
             continue
-        if cmd == "status":
-            _cmd_status()
-            continue
         if cmd == "uptime":
             _cmd_uptime()
+            continue
+        if cmd == "status":
+            _cmd_status(parts)
             continue
         if cmd == "update":
             _handle_update(state, parts)
