@@ -17,6 +17,7 @@ from app.memory.models import MemoryCategory
 
 from app.core.runtime_status import get_runtime_status, to_human_readable as runtime_hr
 from app.core.memory_status import get_memory_status, to_human_readable as memory_hr
+from app.core.governance_status import get_governance_status, to_human_readable as governance_hr
 
 
 START_TIME = time.time()
@@ -39,7 +40,7 @@ def _print_help() -> None:
         "Commands:\n"
         "  help\n"
         "  version\n"
-        "  status [runtime|memory]\n"
+        "  status [runtime|memory|governance]\n"
         "  quit | exit\n"
         "\n"
         "Update system:\n"
@@ -67,7 +68,7 @@ def _cmd_version() -> None:
 
 def _cmd_status(state: RuntimeState, parts: list[str]) -> None:
     if len(parts) == 1:
-        print("Status available. Try: status runtime | status memory")
+        print("Status available. Try: status runtime | status memory | status governance")
         return
 
     sub = parts[1].lower()
@@ -80,6 +81,11 @@ def _cmd_status(state: RuntimeState, parts: list[str]) -> None:
     if sub == "memory":
         ms = get_memory_status(state.memory_manager)
         print(memory_hr(ms))
+        return
+
+    if sub == "governance":
+        gs = get_governance_status(state.update_manager, state.memory_manager)
+        print(governance_hr(gs))
         return
 
     print("Unknown status command")
