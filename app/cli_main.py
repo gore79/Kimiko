@@ -24,6 +24,7 @@ from app.core.system_snapshot import (
     to_human_readable as snapshot_hr,
     to_json as snapshot_json,
 )
+from app.core.diagnostics import run_diagnostics
 
 
 START_TIME = time.time()
@@ -47,6 +48,7 @@ def _print_help() -> None:
         "  help\n"
         "  version\n"
         "  snapshot [--json]\n"
+        "  diagnostics\n"
         "  status [runtime|memory|governance|capabilities]\n"
         "  quit | exit\n"
         "\n"
@@ -84,6 +86,28 @@ def _cmd_snapshot(state: RuntimeState, parts: list[str]) -> None:
         print(json.dumps(snapshot_json(snapshot), indent=2))
     else:
         print(snapshot_hr(snapshot))
+
+
+def _cmd_diagnostics(state: RuntimeState) -> None:
+    snapshot = get_system_snapshot(
+        start_time=START_TIME,
+        update_manager=state.update_manager,
+        memory_manager=state.memory_manager,
+    )
+
+    report = run_diagnostics(snapshot)
+
+    print("System Diagnostics")
+    print("==================")
+    print(f"Overall Health: {report.overall}")
+    print("")
+    print("Subsystems:")
+
+    for result in report.results:
+        print(f"- {result.name}: {result.status}")
+
+    print("")
+    print(report.recommendation)
 
 
 # ---------------- Status Commands ----------------
@@ -305,6 +329,9 @@ def repl() -> None:
             continue
         if cmd == "snapshot":
             _cmd_snapshot(state, parts)
+            continue
+        if cmd == "diagnostics":
+            _cmd_diagnostics(state)
             continue
         if cmd == "status":
             _cmd_status(state, parts)
