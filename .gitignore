@@ -1,3 +1,25 @@
-# Python bytecode
+# -----------------------------
+# Python
+# -----------------------------
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# -----------------------------
+# Kimiko runtime state
+# -----------------------------
+.kimiko/
+memory/
+logs/
+
+# -----------------------------
+# OS / Editor
+# -----------------------------
+.DS_Store
+Thumbs.db
