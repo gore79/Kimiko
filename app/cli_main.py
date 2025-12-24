@@ -19,6 +19,7 @@ from app.core.runtime_status import get_runtime_status, to_human_readable as run
 from app.core.memory_status import get_memory_status, to_human_readable as memory_hr
 from app.core.governance_status import get_governance_status, to_human_readable as governance_hr
 from app.core.capabilities_status import get_capabilities_status, to_human_readable as capabilities_hr
+from app.core.system_snapshot import get_system_snapshot, to_human_readable as snapshot_hr
 
 
 START_TIME = time.time()
@@ -41,6 +42,7 @@ def _print_help() -> None:
         "Commands:\n"
         "  help\n"
         "  version\n"
+        "  snapshot\n"
         "  status [runtime|memory|governance|capabilities]\n"
         "  quit | exit\n"
         "\n"
@@ -63,6 +65,15 @@ def _print_help() -> None:
 
 def _cmd_version() -> None:
     print(f"Kimiko v{__version__}")
+
+
+def _cmd_snapshot(state: RuntimeState) -> None:
+    snapshot = get_system_snapshot(
+        start_time=START_TIME,
+        update_manager=state.update_manager,
+        memory_manager=state.memory_manager,
+    )
+    print(snapshot_hr(snapshot))
 
 
 # ---------------- Status Commands ----------------
@@ -281,6 +292,9 @@ def repl() -> None:
             continue
         if cmd == "version":
             _cmd_version()
+            continue
+        if cmd == "snapshot":
+            _cmd_snapshot(state)
             continue
         if cmd == "status":
             _cmd_status(state, parts)
