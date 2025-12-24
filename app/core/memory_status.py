@@ -18,6 +18,7 @@ def get_memory_status(mm: MemoryManager) -> MemoryStatus:
     # Determine backend type (local vs HF)
     backend = mm.store.__class__.__name__
 
+    # Count stored memory records by category
     counts: Dict[str, int] = {}
     for category in MemoryCategory:
         try:
@@ -26,7 +27,12 @@ def get_memory_status(mm: MemoryManager) -> MemoryStatus:
         except Exception:
             counts[category.value] = 0
 
-    pending = len(mm.list_proposals())
+    # Count ONLY proposals that are truly pending (PROPOSED)
+    pending = 0
+    for proposal in mm.list_proposals():
+        status = getattr(proposal.status, "value", None)
+        if status == "PROPOSED":
+            pending += 1
 
     return MemoryStatus(
         backend=backend,
