@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Literal
 
-from app.core.system_snapshot import SystemSnapshot
-
 
 Severity = Literal["OK", "WARN", "FAIL"]
 
@@ -27,7 +25,7 @@ class DiagnosticsReport:
 # Individual Checks
 # -----------------------------
 
-def check_runtime(snapshot: SystemSnapshot) -> DiagnosticResult:
+def check_runtime(snapshot) -> DiagnosticResult:
     runtime = snapshot.runtime
 
     required_fields = ["version", "uptime_seconds", "python", "platform"]
@@ -47,7 +45,7 @@ def check_runtime(snapshot: SystemSnapshot) -> DiagnosticResult:
     )
 
 
-def check_memory(snapshot: SystemSnapshot) -> DiagnosticResult:
+def check_memory(snapshot) -> DiagnosticResult:
     mem = snapshot.memory
     gov = snapshot.governance
 
@@ -58,9 +56,7 @@ def check_memory(snapshot: SystemSnapshot) -> DiagnosticResult:
         return DiagnosticResult(
             name="Memory",
             status="WARN",
-            message=(
-                "Memory pending proposal count does not match governance view."
-            ),
+            message="Memory pending proposal count does not match governance view.",
         )
 
     return DiagnosticResult(
@@ -70,7 +66,7 @@ def check_memory(snapshot: SystemSnapshot) -> DiagnosticResult:
     )
 
 
-def check_governance(snapshot: SystemSnapshot) -> DiagnosticResult:
+def check_governance(snapshot) -> DiagnosticResult:
     gov = snapshot.governance
 
     required = [
@@ -96,7 +92,7 @@ def check_governance(snapshot: SystemSnapshot) -> DiagnosticResult:
     )
 
 
-def check_capabilities(snapshot: SystemSnapshot) -> DiagnosticResult:
+def check_capabilities(snapshot) -> DiagnosticResult:
     caps = snapshot.capabilities
 
     forbidden = {
@@ -126,7 +122,7 @@ def check_capabilities(snapshot: SystemSnapshot) -> DiagnosticResult:
 # Aggregation
 # -----------------------------
 
-def run_diagnostics(snapshot: SystemSnapshot) -> DiagnosticsReport:
+def run_diagnostics(snapshot) -> DiagnosticsReport:
     checks = [
         check_runtime(snapshot),
         check_memory(snapshot),
@@ -154,3 +150,22 @@ def run_diagnostics(snapshot: SystemSnapshot) -> DiagnosticsReport:
         results=checks,
         recommendation=recommendation,
     )
+
+
+# -----------------------------
+# Serialization
+# -----------------------------
+
+def diagnostics_to_json(report: DiagnosticsReport) -> Dict:
+    return {
+        "overall": report.overall,
+        "results": [
+            {
+                "name": r.name,
+                "status": r.status,
+                "message": r.message,
+            }
+            for r in report.results
+        ],
+        "recommendation": report.recommendation,
+    }
