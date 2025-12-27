@@ -27,6 +27,7 @@ from app.core.system_snapshot import (
 from app.core.diagnostics import run_diagnostics, diagnostics_to_json
 from app.core.readiness import evaluate_readiness
 from app.core.proposal_permissions import evaluate_proposal_permission
+from app.core.proposal_drafting import generate_proposal_draft
 
 
 START_TIME = time.time()
@@ -53,6 +54,7 @@ def _print_help() -> None:
         "  diagnostics [--json]\n"
         "  readiness\n"
         "  propose-check\n"
+        "  propose-draft\n"
         "  status [runtime|memory|governance|capabilities]\n"
         "  quit | exit\n"
         "\n"
@@ -188,6 +190,74 @@ def _cmd_propose_check(state: RuntimeState) -> None:
 
     print("")
     print("No proposal generated.")
+
+
+def _cmd_propose_draft(state: RuntimeState) -> None:
+    snapshot_obj = get_system_snapshot(
+        start_time=START_TIME,
+        update_manager=state.update_manager,
+        memory_manager=state.memory_manager,
+    )
+    snapshot = snapshot_json(snapshot_obj)
+
+    diagnostics = diagnostics_to_json(run_diagnostics(snapshot_obj))
+
+    readiness_report = evaluate_readiness(
+        snapshot=snapshot,
+        diagnostics=diagnostics,
+    )
+
+    permission = evaluate_proposal_permission(
+        readiness={"status": readiness_report.status},
+        diagnostics=diagnostics,
+        snapshot=snapshot,
+    )
+
+    if not permission.allowed:
+        print("Proposal Draft")
+        print("==============")
+        print("Draft generation denied.")
+        print("")
+        for r in permission.reasons:
+            print(f"- {r}")
+        print("")
+        print("No draft generated.")
+        return
+
+    draft = generate_proposal_draft(
+        snapshot=snapshot,
+        diagnostics=diagnostics,
+        readiness={"status": readiness_report.status},
+        permission={
+            "status": permission.status,
+            "allowed": permission.allowed,
+        },
+    )
+
+    print("Proposal Draft — NOT SUBMITTED")
+    print("==============================")
+    print(f"Draft ID: {draft.draft_id}")
+    print(f"Title: {draft.title}")
+    print("")
+    print("Justification:")
+    print(draft.justification)
+    print("")
+    print("Governance Check:")
+    for k, v in draft.governance_check.items():
+        print(f"- {k}: {v}")
+    print("")
+    print("Proposed Change:")
+    print(draft.proposed_change)
+    print("")
+    print("Risks & Unknowns:")
+    for r in draft.risks:
+        print(f"- {r}")
+    print("")
+    print("Impact:")
+    print(draft.impact)
+    print("")
+    print("Compliance:")
+    print(draft.compliance)
 
 
 # ---------------- Status Commands ----------------
@@ -418,6 +488,9 @@ def repl() -> None:
             continue
         if cmd == "propose-check":
             _cmd_propose_check(state)
+            continue
+        if cmd == "propose-draft":
+            _cmd_propose_draft(state)
             continue
         if cmd == "status":
             _cmd_status(state, parts)
