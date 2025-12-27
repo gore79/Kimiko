@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Dict, List
 
 
@@ -10,12 +10,14 @@ class ProposalDraft:
     draft_id: str
     title: str
     timestamp: float
+    label: str
     justification: str
     governance_check: Dict[str, str]
     proposed_change: str
     risks: List[str]
     impact: str
     compliance: str
+    disclaimer: str
 
 
 def generate_proposal_draft(
@@ -33,15 +35,16 @@ def generate_proposal_draft(
     - permission.allowed == True
     """
 
-    draft_id = f"draft-{int(time.time())}"
+    now = time.time()
 
     return ProposalDraft(
-        draft_id=draft_id,
+        draft_id=f"draft-{int(now)}",
         title="Placeholder Proposal Draft",
-        timestamp=time.time(),
+        timestamp=now,
+        label="DRAFT — NOT SUBMITTED",
         justification=(
-            "This is a placeholder draft. "
-            "No concrete proposal content has been generated yet."
+            "This draft exists to validate the governed proposal drafting pipeline. "
+            "No concrete change is proposed."
         ),
         governance_check={
             "readiness": readiness.get("status", "UNKNOWN"),
@@ -49,16 +52,25 @@ def generate_proposal_draft(
             "diagnostics": diagnostics.get("overall", "UNKNOWN"),
         },
         proposed_change=(
-            "No change is proposed at this stage. "
-            "This draft exists only to validate the drafting pipeline."
+            "No change proposed. This is a structural draft only."
         ),
         risks=[
             "Draft content is placeholder only",
-            "No real change described",
+            "No real system change described",
         ],
-        impact="No impact. Draft-only validation.",
+        impact="No impact. Review-only draft.",
         compliance=(
-            "This draft complies with Phase D½ invariants. "
-            "It is informational only and has no effect unless explicitly approved."
+            "Complies with Phase D½ system invariants and Phase E1 draft contract."
+        ),
+        disclaimer=(
+            "This proposal is informational only. "
+            "It has no effect unless explicitly approved and applied by a human."
         ),
     )
+
+
+def proposal_draft_to_json(draft: ProposalDraft) -> Dict:
+    """
+    Convert a ProposalDraft to a JSON-serializable dict.
+    """
+    return asdict(draft)

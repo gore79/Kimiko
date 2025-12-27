@@ -27,7 +27,10 @@ from app.core.system_snapshot import (
 from app.core.diagnostics import run_diagnostics, diagnostics_to_json
 from app.core.readiness import evaluate_readiness
 from app.core.proposal_permissions import evaluate_proposal_permission
-from app.core.proposal_drafting import generate_proposal_draft
+from app.core.proposal_drafting import (
+    generate_proposal_draft,
+    proposal_draft_to_json,
+)
 
 
 START_TIME = time.time()
@@ -54,7 +57,7 @@ def _print_help() -> None:
         "  diagnostics [--json]\n"
         "  readiness\n"
         "  propose-check\n"
-        "  propose-draft\n"
+        "  propose-draft [--json]\n"
         "  status [runtime|memory|governance|capabilities]\n"
         "  quit | exit\n"
         "\n"
@@ -192,7 +195,9 @@ def _cmd_propose_check(state: RuntimeState) -> None:
     print("No proposal generated.")
 
 
-def _cmd_propose_draft(state: RuntimeState) -> None:
+def _cmd_propose_draft(state: RuntimeState, parts: list[str]) -> None:
+    as_json = "--json" in parts
+
     snapshot_obj = get_system_snapshot(
         start_time=START_TIME,
         update_manager=state.update_manager,
@@ -234,6 +239,10 @@ def _cmd_propose_draft(state: RuntimeState) -> None:
         },
     )
 
+    if as_json:
+        print(json.dumps(proposal_draft_to_json(draft), indent=2))
+        return
+
     print("Proposal Draft — NOT SUBMITTED")
     print("==============================")
     print(f"Draft ID: {draft.draft_id}")
@@ -258,6 +267,9 @@ def _cmd_propose_draft(state: RuntimeState) -> None:
     print("")
     print("Compliance:")
     print(draft.compliance)
+    print("")
+    print("Disclaimer:")
+    print(draft.disclaimer)
 
 
 # ---------------- Status Commands ----------------
@@ -490,7 +502,7 @@ def repl() -> None:
             _cmd_propose_check(state)
             continue
         if cmd == "propose-draft":
-            _cmd_propose_draft(state)
+            _cmd_propose_draft(state, parts)
             continue
         if cmd == "status":
             _cmd_status(state, parts)
