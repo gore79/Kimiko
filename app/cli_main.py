@@ -25,6 +25,7 @@ from app.core.system_snapshot import (
     to_json as snapshot_json,
 )
 from app.core.diagnostics import run_diagnostics, diagnostics_to_json
+from app.core.readiness import evaluate_readiness
 
 
 START_TIME = time.time()
@@ -49,6 +50,7 @@ def _print_help() -> None:
         "  version\n"
         "  snapshot [--json]\n"
         "  diagnostics [--json]\n"
+        "  readiness\n"
         "  status [runtime|memory|governance|capabilities]\n"
         "  quit | exit\n"
         "\n"
@@ -114,6 +116,40 @@ def _cmd_diagnostics(state: RuntimeState, parts: list[str]) -> None:
 
     print("")
     print(report.recommendation)
+
+
+def _cmd_readiness(state: RuntimeState) -> None:
+    snapshot = get_system_snapshot(
+        start_time=START_TIME,
+        update_manager=state.update_manager,
+        memory_manager=state.memory_manager,
+    )
+
+    diagnostics = diagnostics_to_json(run_diagnostics(snapshot))
+
+    report = evaluate_readiness(
+        snapshot=snapshot_json(snapshot),
+        diagnostics=diagnostics,
+    )
+
+    print("System Readiness")
+    print("================")
+    print(f"Ready for action: {'YES' if report.ready else 'NO'}")
+    print(f"Status: {report.status}")
+    print("")
+
+    if report.reasons:
+        if report.status == "BLOCKED":
+            print("Blocking reasons:")
+        else:
+            print("Reasons:")
+        for r in report.reasons:
+            print(f"- {r}")
+    else:
+        print("No blocking conditions detected.")
+
+    print("")
+    print("Action remains blocked.")
 
 
 # ---------------- Status Commands ----------------
@@ -338,6 +374,9 @@ def repl() -> None:
             continue
         if cmd == "diagnostics":
             _cmd_diagnostics(state, parts)
+            continue
+        if cmd == "readiness":
+            _cmd_readiness(state)
             continue
         if cmd == "status":
             _cmd_status(state, parts)
