@@ -26,6 +26,7 @@ from app.core.system_snapshot import (
 )
 from app.core.diagnostics import run_diagnostics, diagnostics_to_json
 from app.core.readiness import evaluate_readiness
+from app.core.proposal_permissions import evaluate_proposal_permission
 
 
 START_TIME = time.time()
@@ -51,6 +52,7 @@ def _print_help() -> None:
         "  snapshot [--json]\n"
         "  diagnostics [--json]\n"
         "  readiness\n"
+        "  propose-check\n"
         "  status [runtime|memory|governance|capabilities]\n"
         "  quit | exit\n"
         "\n"
@@ -150,6 +152,42 @@ def _cmd_readiness(state: RuntimeState) -> None:
 
     print("")
     print("Action remains blocked.")
+
+
+def _cmd_propose_check(state: RuntimeState) -> None:
+    snapshot = get_system_snapshot(
+        start_time=START_TIME,
+        update_manager=state.update_manager,
+        memory_manager=state.memory_manager,
+    )
+
+    diagnostics = diagnostics_to_json(run_diagnostics(snapshot))
+    readiness = {
+        "status": evaluate_readiness(
+            snapshot=snapshot_json(snapshot),
+            diagnostics=diagnostics,
+        ).status
+    }
+
+    report = evaluate_proposal_permission(
+        readiness=readiness,
+        diagnostics=diagnostics,
+        snapshot=snapshot_json(snapshot),
+    )
+
+    print("Proposal Permission Check")
+    print("=========================")
+    print(f"Allowed to propose: {'YES' if report.allowed else 'NO'}")
+    print(f"Status: {report.status}")
+    print("")
+
+    if report.reasons:
+        print("Reasons:")
+        for r in report.reasons:
+            print(f"- {r}")
+
+    print("")
+    print("No proposal generated.")
 
 
 # ---------------- Status Commands ----------------
@@ -377,6 +415,9 @@ def repl() -> None:
             continue
         if cmd == "readiness":
             _cmd_readiness(state)
+            continue
+        if cmd == "propose-check":
+            _cmd_propose_check(state)
             continue
         if cmd == "status":
             _cmd_status(state, parts)
